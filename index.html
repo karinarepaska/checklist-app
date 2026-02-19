@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Checklist</title>
+  <style>
+    :root{ font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    body{ margin:0; background:#f6f7fb; padding:16px; color:#111; }
+    .card{
+      max-width:620px; margin:0 auto; background:#fff; border-radius:18px;
+      padding:16px; box-shadow:0 10px 25px rgba(0,0,0,.08);
+    }
+    .topbar{ display:flex; gap:10px; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    h1{ font-size:20px; margin:0; }
+    .btn{
+      border:0; border-radius:12px; padding:10px 12px; font-size:14px;
+      cursor:pointer; background:#eef1f8;
+    }
+    .btn.primary{ background:#111; color:#fff; }
+    .btn.danger{ background:#ffe7e7; }
+    .row{ display:flex; gap:10px; margin:10px 0 14px; }
+    input[type="text"]{
+      flex:1; padding:12px; border-radius:12px; border:1px solid #d7dbe7; font-size:16px;
+    }
+
+    ol{ margin:0; padding-left:22px; }
+    li{
+      margin:0 0 10px 0; padding:10px 10px 10px 0;
+      border-radius:14px; border:1px solid #eef0f6; list-style:decimal;
+    }
+    .item{ display:flex; align-items:center; gap:12px; padding-left:10px; }
+
+    .box{
+      width:26px; height:26px; border-radius:8px; border:2px solid #cfd6e6;
+      display:flex; align-items:center; justify-content:center; user-select:none;
+      flex:0 0 auto; background:#fff; cursor:pointer;
+    }
+    .box.checked{ border-color:#1aa34a; background:rgba(26,163,74,.08); }
+    .checkmark{ font-size:18px; line-height:1; color:#1aa34a; transform: translateY(-1px); }
+
+    .text{
+      flex:1; font-size:16px; line-height:1.25; cursor:text;
+      padding:6px 8px; border-radius:10px; color:#111;
+    }
+    /* NOVĚ: Nehotové = červeně automaticky */
+    .text.pending{ color:#c01818; font-weight:600; }
+
+    .text:focus{ outline:2px solid #c9d6ff; background:#f7f9ff; }
+
+    .hint{ opacity:.65; font-size:13px; margin-top:10px; }
+
+    dialog{
+      width:min(680px, 96vw);
+      border:0; border-radius:16px; padding:14px;
+      box-shadow:0 18px 40px rgba(0,0,0,.22);
+    }
+    dialog::backdrop{ background:rgba(0,0,0,.35); }
+    .dialog-title{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+    .dialog-title h2{ margin:0; font-size:18px; }
+    .grid{ display:grid; grid-template-columns: 1fr; gap:12px; margin-top:10px; }
+    .panel{
+      border:1px solid #eef0f6; border-radius:14px; padding:12px; background:#fff;
+    }
+    .panel h3{ margin:0 0 8px 0; font-size:14px; }
+    .panel p{ margin:0 0 10px 0; font-size:13px; opacity:.75; }
+    .panel .row{ margin:0; }
+    .small{ font-size:12px; opacity:.7; margin-top:6px; }
+    .msg{ margin-top:10px; font-size:13px; opacity:.9; }
+    code{ background:#f1f3f9; padding:2px 6px; border-radius:8px; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="topbar">
+      <h1>Checklist</h1>
+      <button id="optionsBtn" class="btn" type="button">MOŽNOSTI</button>
+    </div>
+
+    <form id="addForm" class="row">
+      <input id="newTask" type="text" placeholder="Přidat úkol…" autocomplete="off" />
+      <button class="btn primary" type="submit">Přidat</button>
+    </form>
+
+    <ol id="list"></ol>
+
+    <div class="hint">
+      Tip: text úkolu můžeš upravit kliknutím do něj (přímo v seznamu). Enter uloží.
+    </div>
+  </main>
+
+  <dialog id="dlg">
+    <div class="dialog-title">
+      <h2>MOŽNOSTI</h2>
+      <button id="closeDlg" class="btn" type="button">Zavřít</button>
+    </div>
+
+    <div class="grid">
+      <div class="panel">
+        <h3>Označit vše jako hotové</h3>
+        <p>Všechny úkoly se odškrtí jako hotové a přesunou se na konec seznamu.</p>
+        <button id="markAllDone" class="btn" type="button">Označit vše jako hotové</button>
+      </div>
+
+      <div class="panel">
+        <h3>Odebrat všechny fajfky</h3>
+        <p>Všechny úkoly zůstanou, jen se odškrtnutí vynuluje. Nehotové budou zase červeně a přesunou se na začátek.</p>
+        <button id="clearAllChecks" class="btn" type="button">Odebrat všechny fajfky</button>
+      </div>
+
+      <div class="panel">
+        <h3>Odebrat fajfky u vybraných úkolů</h3>
+        <p>Zadej jedno číslo (<code>3</code>) nebo více čísel oddělených čárkou (např. <code>1, 2, 3</code>). Rozsahy jdou taky: <code>5-7</code>.</p>
+        <div class="row">
+          <input id="numsUncheck" type="text" placeholder="Např. 3 nebo 1, 2, 5-7" />
+          <button id="btnUncheckNums" class="btn" type="button">Provést</button>
+        </div>
+        <div class="small">Pokud zadáš víc položek, musí být oddělené čárkou. Mezery můžou být.</div>
+      </div>
+
+      <div class="panel">
+        <h3>Smazat vybrané úkoly</h3>
+        <p>Zadej jedno číslo (<code>4</code>) nebo více čísel oddělených čárkou (např. <code>2, 4, 8-10</code>). Potom se seznam přečísluje.</p>
+        <div class="row">
+          <input id="numsDelete" type="text" placeholder="Např. 4 nebo 2, 4, 8-10" />
+          <button id="btnDeleteNums" class="btn danger" type="button">Smazat vybrané</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>Smazat celý checklist</h3>
+        <p>Smaže úplně vše (úkoly i odškrtnutí). Nový seznam pak začne od 1.</p>
+        <button id="deleteAll" class="btn danger" type="button">Smazat celý checklist</button>
+      </div>
+
+      <div id="msg" class="msg"></div>
+    </div>
+  </dialog>
+
+  <script>
+    // ======= ULOŽENÍ =======
+    const STORAGE_KEY = "simple_checklist_v3";
+
+    function loadData(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : { items: [] };
+      }catch{
+        return { items: [] };
+      }
+    }
+    function saveData(){
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    }
+
+    // item: { text: string, checked: bool }
+    let data = loadData();
+
+    // ======= DOM =======
+    const listEl = document.getElementById("list");
+    const addForm = document.getElementById("addForm");
+    const newTask = document.getElementById("newTask");
+
+    const optionsBtn = document.getElementById("optionsBtn");
+    const dlg = document.getElementById("dlg");
+    const closeDlg = document.getElementById("closeDlg");
+    const msgEl = document.getElementById("msg");
+
+    const markAllDoneBtn = document.getElementById("markAllDone");
+    const clearAllChecksBtn = document.getElementById("clearAllChecks");
+    const deleteAllBtn = document.getElementById("deleteAll");
+
+    const numsUncheck = document.getElementById("numsUncheck");
+    const btnUncheckNums = document.getElementById("btnUncheckNums");
+
+    const numsDelete = document.getElementById("numsDelete");
+    const btnDeleteNums = document.getElementById("btnDeleteNums");
+
+    function showMsg(text){
+      msgEl.textContent = text || "";
+      if (text) setTimeout(() => { if (msgEl.textContent === text) msgEl.textContent = ""; }, 3500);
+    }
+
+    // ======= PARSING ČÍSEL =======
+    // Povolené:
+    // - jedno číslo: "3"
+    // - nebo více položek oddělených čárkou: "1, 2, 5-7"
+    // Mezery jsou OK. Když je více položek, MUSÍ být čárky (ne "1 2 3").
+    function parseNumberSpec(spec){
+      const s = (spec || "").trim();
+      if(!s) return { ok: false, nums: [] };
+
+      const patternSingle = /^\s*\d+\s*$/;
+      const patternList =
+        /^\s*\d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*\s*$/;
+
+      const isSingle = patternSingle.test(s);
+      const isList = patternList.test(s);
+
+      if(!isSingle){
+        if(!isList) return { ok: false, nums: [] };
+        if(!s.includes(",")) return { ok: false, nums: [] };
+      }
+
+      const out = new Set();
+      const parts = isSingle ? [s] : s.split(",").map(p => p.trim()).filter(Boolean);
+
+      for(const part of parts){
+        const m = part.match(/^(\d+)\s*-\s*(\d+)$/);
+        if(m){
+          let a = parseInt(m[1],10);
+          let b = parseInt(m[2],10);
+          if (a > b) [a,b] = [b,a];
+          for(let i=a; i<=b; i++) out.add(i);
+          continue;
+        }
+        const n = parseInt(part,10);
+        if(!Number.isNaN(n)) out.add(n);
+      }
+
+      return { ok: true, nums: Array.from(out).sort((a,b)=>a-b) };
+    }
+
+    function validIndexesFromNumbers(nums){
+      const idxs = [];
+      for(const n of nums){
+        const idx = n - 1;
+        if(idx >= 0 && idx < data.items.length) idxs.push(idx);
+      }
+      return idxs;
+    }
+
+    // ======= POHYB POLOŽEK PODLE STAVU =======
+    // hotové -> konec, nehotové -> začátek
+    function moveItemToEnd(index){
+      const [it] = data.items.splice(index, 1);
+      data.items.push(it);
+    }
+    function moveItemToStart(index){
+      const [it] = data.items.splice(index, 1);
+      data.items.unshift(it);
+    }
+
+    // ======= RENDER =======
+    function render(){
+      listEl.innerHTML = "";
+
+      if(data.items.length === 0){
+        const p = document.createElement("p");
+        p.textContent = "Zatím je checklist prázdný. Přidej první úkol 🙂";
+        p.style.opacity = "0.7";
+        p.style.margin = "6px 0 0";
+        listEl.appendChild(p);
+        return;
+      }
+
+      data.items.forEach((item, idx) => {
+        const li = document.createElement("li");
+
+        const wrap = document.createElement("div");
+        wrap.className = "item";
+
+        // čtvereček
+        const box = document.createElement("div");
+        box.className = "box" + (item.checked ? " checked" : "");
+        box.title = "Klik pro (ne)hotovo";
+
+        const mark = document.createElement("div");
+        mark.className = "checkmark";
+        mark.textContent = item.checked ? "✓" : "";
+        box.appendChild(mark);
+
+        box.addEventListener("click", () => {
+          // Pozor: idx se v handleru používá z renderu, ale po přesunu se mění pořadí.
+          // Proto pracujeme přes aktuální index z DOM: najdeme podle textu reference by index v době kliknutí.
+          // Nejjednodušší: přepočítat index přes pořadí položek v poli:
+          const currentIndex = Array.from(listEl.children).indexOf(li);
+          if (currentIndex < 0) return;
+
+          const currentItem = data.items[currentIndex];
+          currentItem.checked = !currentItem.checked;
+
+          if (currentItem.checked) {
+            moveItemToEnd(currentIndex);
+          } else {
+            moveItemToStart(currentIndex);
+          }
+
+          saveData();
+          render();
+        });
+
+        // text (editovatelný)
+        const text = document.createElement("div");
+        text.className = "text" + (item.checked ? "" : " pending");
+        text.contentEditable = "true";
+        text.spellcheck = false;
+        text.textContent = item.text;
+
+        text.addEventListener("blur", () => {
+          const t = text.textContent.trim();
+          if(!t){
+            text.textContent = item.text; // nepovolit prázdný text
+            return;
+          }
+          // Pozor na změnu pořadí: zjistíme aktuální index podle li
+          const currentIndex = Array.from(listEl.children).indexOf(li);
+          if (currentIndex < 0) return;
+          data.items[currentIndex].text = t;
+          saveData();
+        });
+
+        text.addEventListener("keydown", (e) => {
+          if(e.key === "Enter"){
+            e.preventDefault();
+            text.blur();
+          }
+        });
+
+        wrap.appendChild(box);
+        wrap.appendChild(text);
+        li.appendChild(wrap);
+        listEl.appendChild(li);
+      });
+    }
+
+    // ======= PŘIDÁNÍ ÚKOLU =======
+    // NOVĚ: nový úkol je automaticky nehotový => červený a má být na začátku
+    addForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const t = newTask.value.trim();
+      if(!t) return;
+
+      data.items.unshift({ text: t, checked: false }); // na začátek
+      newTask.value = "";
+      saveData();
+      render();
+    });
+
+    // ======= DIALOG =======
+    optionsBtn.addEventListener("click", () => {
+      msgEl.textContent = "";
+      dlg.showModal();
+    });
+    closeDlg.addEventListener("click", () => dlg.close());
+
+    // klik mimo dialog = zavřít
+    dlg.addEventListener("click", (e) => {
+      const rect = dlg.getBoundingClientRect();
+      const inDialog = (
+        e.clientX >= rect.left && e.clientX <= rect.right &&
+        e.clientY >= rect.top  && e.clientY <= rect.bottom
+      );
+      if(!inDialog) dlg.close();
+    });
+
+    // ======= MOŽNOSTI =======
+    // Označit vše jako hotové (vše checked=true a hotové jdou na konec)
+    markAllDoneBtn.addEventListener("click", () => {
+      if (data.items.length === 0) return;
+
+      // necháme pořadí hotových na konci v aktuálním pořadí, ať to není chaos
+      const all = data.items.map(it => ({ ...it, checked: true }));
+      data.items = all; // všichni hotoví => žádné přesouvání potřeba (všichni jsou "konec")
+      saveData();
+      render();
+      showMsg("Vše označeno jako hotové.");
+    });
+
+    // Odebrat všechny fajfky (vše unchecked a nehotové mají být na začátku)
+    clearAllChecksBtn.addEventListener("click", () => {
+      if (data.items.length === 0) return;
+
+      const all = data.items.map(it => ({ ...it, checked: false }));
+      data.items = all; // všichni nehotoví => "začátek"
+      saveData();
+      render();
+      showMsg("Hotovo: všechny fajfky byly odebrány.");
+    });
+
+    // Smazat celý checklist
+    deleteAllBtn.addEventListener("click", () => {
+      const ok = confirm("Opravdu smazat celý checklist? (Nejde vrátit zpět)");
+      if(!ok) return;
+      data.items = [];
+      saveData();
+      render();
+      showMsg("Checklist byl smazán.");
+    });
+
+    // Odebrat fajfky podle čísel (a přesunout tyto položky na začátek)
+    btnUncheckNums.addEventListener("click", () => {
+      const parsed = parseNumberSpec(numsUncheck.value);
+      if(!parsed.ok){
+        showMsg("Zadej čísla oddělená čárkou např. 1, 2, 3");
+        return;
+      }
+      const idxs = validIndexesFromNumbers(parsed.nums);
+      if(idxs.length === 0){
+        showMsg("Nic jsem neprovedla — zkontroluj zadaná čísla.");
+        return;
+      }
+
+      // Aby se přesun na začátek choval přirozeně: bereme položky v pořadí zadaných čísel (1..N)
+      // a skládáme nový seznam: [vybrané jako nehotové] + [zbytek beze změny]
+      const selectedSet = new Set(idxs);
+      const selected = [];
+      const rest = [];
+
+      data.items.forEach((it, i) => {
+        if (selectedSet.has(i)) selected.push(it);
+        else rest.push(it);
+      });
+
+      selected.forEach(it => it.checked = false);
+
+      // vybrané jdou na začátek (v jejich původním pořadí)
+      data.items = [...selected, ...rest];
+
+      saveData();
+      render();
+      showMsg(`Odebrané fajfky u úkolů: ${idxs.map(i=>i+1).join(", ")}`);
+    });
+
+    // Smazat úkoly podle čísel
+    btnDeleteNums.addEventListener("click", () => {
+      const parsed = parseNumberSpec(numsDelete.value);
+      if(!parsed.ok){
+        showMsg("Zadej čísla oddělená čárkou např. 1, 2, 3");
+        return;
+      }
+      const idxs = validIndexesFromNumbers(parsed.nums);
+      if(idxs.length === 0){
+        showMsg("Nic jsem nesmazala — zkontroluj zadaná čísla.");
+        return;
+      }
+      const ok = confirm(`Opravdu smazat úkoly: ${idxs.map(i=>i+1).join(", ")} ?`);
+      if(!ok) return;
+
+      idxs.sort((a,b)=>b-a).forEach(i => data.items.splice(i,1));
+
+      saveData();
+      render();
+      showMsg("Vybrané úkoly byly smazány a seznam přečíslován.");
+    });
+
+    // start
+    render();
+  </script>
+</body>
+</html>

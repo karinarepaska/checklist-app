@@ -71,6 +71,11 @@
     code{ background:#f1f3f9; padding:2px 6px; border-radius:8px; }
   </style>
 </head>
+  <script>
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js");
+}
+  </script>
 <body>
   <main class="card">
     <div class="topbar">

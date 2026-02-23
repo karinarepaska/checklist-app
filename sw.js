@@ -1,8 +1,9 @@
-const CACHE = "checklist-v1";
+const CACHE = "checklist-v2";
 const ASSETS = [
   "/checklist-app/",
   "/checklist-app/index.html",
   "/checklist-app/manifest.json",
+  "/checklist-app/sw.js",
   "/checklist-app/icon-192.png",
   "/checklist-app/icon-512.png"
 ];
@@ -17,5 +18,7 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  event.respondWith(caches.match(event.request).then(r => r || fetch(event.request)));
+  event.respondWith(
+    caches.match(event.request).then((r) => r || fetch(event.request))
+  );
 });
